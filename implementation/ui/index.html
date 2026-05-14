@@ -89,6 +89,7 @@
           <button class="tab active" data-tab="data" type="button">Data</button>
           <button class="tab" data-tab="schema" type="button">Schema</button>
           <button class="tab" data-tab="insert" type="button">Insert</button>
+          <button class="tab" data-tab="mcp" type="button">MCP Demo</button>
         </nav>
 
         <section id="dataTab" class="tab-panel active">
@@ -146,6 +147,47 @@
           </div>
           <form id="insertForm" class="insert-form"></form>
           <pre id="insertResult" class="result-box"></pre>
+        </section>
+
+        <section id="mcpTab" class="tab-panel">
+          <div class="pane-heading">
+            <h2>MCP Prompt Demo</h2>
+            <span id="mcpLabel">prompt -> MCP tools/resources -> answer</span>
+          </div>
+
+          <div class="mcp-grid">
+            <section class="prompt-pane">
+              <label for="promptInput">Prompt</label>
+              <textarea id="promptInput" rows="7">List the available MCP tools and resources. Read schema://database. Search students in cohort A1 ordered by score descending. Count students and calculate average score by cohort.</textarea>
+              <div class="prompt-actions">
+                <button id="loadMcpButton" class="ghost-button" type="button">List Tools</button>
+                <button id="runPromptButton" class="primary-button" type="button">Run Prompt</button>
+              </div>
+              <pre id="promptAnswer" class="result-box"></pre>
+            </section>
+
+            <section class="metadata-pane">
+              <div class="pane-heading compact">
+                <h2>Tools</h2>
+                <span>discoverable by MCP</span>
+              </div>
+              <div id="toolList" class="tool-list"></div>
+
+              <div class="pane-heading compact resource-heading">
+                <h2>Resources</h2>
+                <span>schema context</span>
+              </div>
+              <div id="resourceList" class="resource-list"></div>
+            </section>
+          </div>
+
+          <section class="trace-pane">
+            <div class="pane-heading">
+              <h2>MCP Call Trace</h2>
+              <span id="traceLabel">no prompt run yet</span>
+            </div>
+            <div id="mcpTrace" class="trace-list"></div>
+          </section>
         </section>
       </section>
     </main>

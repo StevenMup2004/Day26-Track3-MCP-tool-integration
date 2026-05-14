@@ -111,12 +111,27 @@ http://127.0.0.1:8765
 
 Useful UI demo flow:
 
+- Open the **MCP Demo** tab.
+- Click **List Tools** to show MCP-discoverable tools and resources.
+- Edit the prompt, then click **Run Prompt** to show the prompt, answer, and MCP call trace.
 - Show `students` rows ordered by `score`.
 - Filter `students` where `cohort = A1`.
 - Visualize `avg(score)` grouped by `cohort`.
 - Open the Schema tab and show columns/constraints.
 - Insert a new student from the Insert tab.
 - Click Reset to restore deterministic seed data.
+
+Default MCP UI prompt:
+
+```text
+List the available MCP tools and resources. Read schema://database. Search students in cohort A1 ordered by score descending. Count students and calculate average score by cohort.
+```
+
+Prompt with invalid request demo:
+
+```text
+List tools, read schema, search A1 students, count students, average score by cohort, and show invalid error.
+```
 
 ## Tools
 

@@ -30,7 +30,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -125,7 +126,8 @@ label {
 }
 
 select,
-input {
+input,
+textarea {
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;
@@ -137,9 +139,16 @@ input {
 
 select:focus,
 input:focus,
+textarea:focus,
 button:focus {
   outline: 2px solid rgba(0, 123, 117, 0.25);
   outline-offset: 2px;
+}
+
+textarea {
+  min-height: 160px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .inline-controls {
@@ -284,7 +293,8 @@ button {
 .data-pane,
 .chart-pane,
 #schemaTab,
-#insertTab {
+#insertTab,
+#mcpTab {
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -305,6 +315,15 @@ button {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.pane-heading.compact {
+  min-height: 24px;
+  margin-bottom: 10px;
+}
+
+.pane-heading.compact h2 {
+  font-size: 15px;
 }
 
 .table-wrap {
@@ -408,6 +427,132 @@ tr:last-child td {
   font-size: 13px;
 }
 
+.mcp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.75fr);
+  gap: 18px;
+}
+
+.prompt-pane,
+.metadata-pane,
+.trace-pane {
+  min-width: 0;
+}
+
+.prompt-actions {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.prompt-actions .primary-button,
+.prompt-actions .ghost-button {
+  width: 100%;
+  margin-top: 0;
+}
+
+.tool-list,
+.resource-list,
+.trace-list {
+  display: grid;
+  gap: 10px;
+}
+
+.tool-item,
+.resource-item,
+.trace-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.tool-item {
+  padding: 12px;
+}
+
+.tool-title {
+  font-weight: 850;
+}
+
+.tool-description {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.tool-args {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--teal-dark);
+  background: #e5f4ef;
+  font-size: 12px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.resource-heading {
+  margin-top: 18px;
+}
+
+.resource-item {
+  padding: 10px 12px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.trace-pane {
+  margin-top: 18px;
+}
+
+.trace-item {
+  overflow: hidden;
+}
+
+.trace-item header {
+  display: grid;
+  grid-template-columns: 30px minmax(120px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #eef3f7;
+}
+
+.trace-item.ok header {
+  border-left: 4px solid var(--teal);
+}
+
+.trace-item.failed header {
+  border-left: 4px solid var(--red);
+}
+
+.trace-index {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #ffffff;
+  background: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.trace-item pre {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 .toast {
   position: fixed;
   right: 18px;
@@ -445,6 +590,10 @@ tr:last-child td {
   .visual-grid {
     grid-template-columns: 1fr;
   }
+
+  .mcp-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 680px) {
@@ -474,6 +623,11 @@ tr:last-child td {
   }
 
   .bar-row {
+    grid-template-columns: 1fr;
+  }
+
+  .prompt-actions,
+  .trace-item header {
     grid-template-columns: 1fr;
   }
 }

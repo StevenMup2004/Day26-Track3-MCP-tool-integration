@@ -3,6 +3,7 @@ const state = {
   table: "students",
   rows: [],
   aggregateRows: [],
+  mcpMetadata: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -239,6 +240,73 @@ async function resetDatabase() {
   await runAggregate();
 }
 
+async function loadMcpMetadata() {
+  const metadata = await api("/api/mcp/metadata");
+  state.mcpMetadata = metadata;
+  renderMcpMetadata(metadata);
+  showToast("MCP tools and resources discovered");
+}
+
+function renderMcpMetadata(metadata) {
+  $("toolList").innerHTML = metadata.tools
+    .map((tool) => {
+      const schema = tool.inputSchema || tool.input_schema || {};
+      const properties = Object.keys(schema.properties || {});
+      return `
+        <article class="tool-item">
+          <div class="tool-title">${escapeHtml(tool.name)}</div>
+          <div class="tool-description">${escapeHtml(tool.description || "")}</div>
+          <div class="tool-args">${escapeHtml(properties.join(", ") || "no args")}</div>
+        </article>
+      `;
+    })
+    .join("");
+
+  const resources = [
+    ...(metadata.resources || []).map((resource) => resource.uri),
+    ...(metadata.resource_templates || []).map((template) => template.uriTemplate),
+  ];
+  $("resourceList").innerHTML = resources
+    .map((resource) => `<div class="resource-item">${escapeHtml(resource)}</div>`)
+    .join("");
+}
+
+async function runMcpPrompt() {
+  $("runPromptButton").disabled = true;
+  $("runPromptButton").textContent = "Running";
+  try {
+    const result = await api("/api/mcp/prompt", {
+      method: "POST",
+      body: JSON.stringify({ prompt: $("promptInput").value }),
+    });
+    $("promptAnswer").textContent = result.answer;
+    $("traceLabel").textContent = `${result.trace.length} MCP steps`;
+    renderMcpTrace(result.trace);
+    showToast("Prompt completed through MCP");
+  } finally {
+    $("runPromptButton").disabled = false;
+    $("runPromptButton").textContent = "Run Prompt";
+  }
+}
+
+function renderMcpTrace(trace) {
+  $("mcpTrace").innerHTML = trace
+    .map(
+      (step, index) => `
+        <article class="trace-item ${step.ok ? "ok" : "failed"}">
+          <header>
+            <span class="trace-index">${index + 1}</span>
+            <strong>${escapeHtml(step.operation)}</strong>
+            <span>${escapeHtml(step.step)}</span>
+          </header>
+          ${step.arguments ? `<pre>${escapeHtml(JSON.stringify(step.arguments, null, 2))}</pre>` : ""}
+          <pre>${escapeHtml(JSON.stringify(step.result || { error: step.error }, null, 2))}</pre>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function bindEvents() {
   $("tableSelect").addEventListener("change", async (event) => {
     state.table = event.target.value;
@@ -260,6 +328,12 @@ function bindEvents() {
   );
   $("resetButton").addEventListener("click", () =>
     resetDatabase().catch((error) => showToast(error.message, true)),
+  );
+  $("loadMcpButton").addEventListener("click", () =>
+    loadMcpMetadata().catch((error) => showToast(error.message, true)),
+  );
+  $("runPromptButton").addEventListener("click", () =>
+    runMcpPrompt().catch((error) => showToast(error.message, true)),
   );
   $("insertForm").addEventListener("submit", (event) =>
     insertRow(event).catch((error) => showToast(error.message, true)),
@@ -311,6 +385,7 @@ async function boot() {
   bindEvents();
   try {
     await loadSchema();
+    await loadMcpMetadata();
     $("metricSelect").dispatchEvent(new Event("change"));
     await runSearch();
     await runAggregate();

@@ -1,20 +1,26 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import mimetypes
+import time
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from fastmcp import Client
+
 try:
     from .db import SQLiteAdapter, ValidationError
     from .init_db import DEFAULT_DB_PATH, create_database
+    from .mcp_server import create_mcp_server
 except ImportError:  # Allows `python implementation/ui_server.py`.
     from db import SQLiteAdapter, ValidationError
     from init_db import DEFAULT_DB_PATH, create_database
+    from mcp_server import create_mcp_server
 
 
 IMPLEMENTATION_DIR = Path(__file__).resolve().parent
@@ -81,6 +87,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         == "true",
                     )
                 )
+            elif path == "/api/mcp/metadata":
+                self._send_json(asyncio.run(self._mcp_metadata()))
             else:
                 self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
         except (ValidationError, ValueError) as exc:
@@ -97,10 +105,187 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == "/api/reset":
                 create_database(self.db_path)
                 self._send_json({"ok": True, "database": str(self.db_path)})
+            elif path == "/api/mcp/prompt":
+                prompt = str(payload.get("prompt", "")).strip()
+                self._send_json(asyncio.run(self._run_mcp_prompt(prompt)))
             else:
                 self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
         except (TypeError, ValidationError, ValueError) as exc:
             self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
+    async def _mcp_metadata(self) -> dict[str, Any]:
+        server = create_mcp_server(SQLiteAdapter(self.db_path))
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            resources = await client.list_resources()
+            templates = await client.list_resource_templates()
+        return {
+            "tools": [self._model_to_json(tool) for tool in tools],
+            "resources": [self._model_to_json(resource) for resource in resources],
+            "resource_templates": [
+                self._model_to_json(template) for template in templates
+            ],
+        }
+
+    async def _run_mcp_prompt(self, prompt: str) -> dict[str, Any]:
+        if not prompt:
+            prompt = DEFAULT_PROMPT
+
+        normalized = prompt.lower()
+        trace: list[dict[str, Any]] = []
+        answer_parts: list[str] = []
+        server = create_mcp_server(SQLiteAdapter(self.db_path))
+
+        async with Client(server) as client:
+            tools = await client.list_tools()
+            resources = await client.list_resources()
+            templates = await client.list_resource_templates()
+            tool_names = [tool.name for tool in tools]
+
+            trace.append(
+                {
+                    "step": "discover",
+                    "operation": "list_tools",
+                    "ok": True,
+                    "result": {"tools": tool_names},
+                }
+            )
+            trace.append(
+                {
+                    "step": "discover",
+                    "operation": "list_resources",
+                    "ok": True,
+                    "result": {
+                        "resources": [str(resource.uri) for resource in resources],
+                        "resource_templates": [
+                            template.uriTemplate for template in templates
+                        ],
+                    },
+                }
+            )
+
+            schema_contents = await client.read_resource("schema://database")
+            schema_text = schema_contents[0].text
+            schema = json.loads(schema_text)
+            table_names = sorted(schema["tables"])
+            trace.append(
+                {
+                    "step": "resource",
+                    "operation": "read_resource",
+                    "arguments": {"uri": "schema://database"},
+                    "ok": True,
+                    "result": {"tables": table_names},
+                }
+            )
+            answer_parts.append(f"Tools: {', '.join(tool_names)}")
+            answer_parts.append(f"Tables: {', '.join(table_names)}")
+
+            wants_search = self._mentions_any(
+                normalized, ["search", "student", "students", "a1", "cohort", "tim", "tìm", "lọc"]
+            )
+            wants_average = self._mentions_any(
+                normalized,
+                ["avg", "average", "trung bình", "cohort", "aggregate", "thống kê"],
+            )
+            wants_count = self._mentions_any(
+                normalized, ["count", "đếm", "dem", "bao nhiêu", "student count"]
+            )
+            wants_invalid = self._mentions_any(
+                normalized, ["invalid", "error", "lỗi", "missing", "sai"]
+            )
+
+            if not any([wants_search, wants_average, wants_count, wants_invalid]):
+                wants_search = True
+                wants_average = True
+                wants_count = True
+
+            if wants_search:
+                args = {
+                    "table": "students",
+                    "filters": {"cohort": "A1"},
+                    "columns": ["id", "name", "cohort", "score"],
+                    "limit": 10,
+                    "order_by": "score",
+                    "descending": True,
+                }
+                result = await client.call_tool("search", args)
+                data = self._tool_data(result)
+                trace.append(
+                    {
+                        "step": "tool",
+                        "operation": "search",
+                        "arguments": args,
+                        "ok": True,
+                        "result": data,
+                    }
+                )
+                students = ", ".join(
+                    f"{row['name']} ({row['score']})" for row in data["rows"]
+                )
+                answer_parts.append(f"A1 students by score: {students}")
+
+            if wants_count:
+                args = {"table": "students", "metric": "count", "column": "id"}
+                result = await client.call_tool("aggregate", args)
+                data = self._tool_data(result)
+                trace.append(
+                    {
+                        "step": "tool",
+                        "operation": "aggregate",
+                        "arguments": args,
+                        "ok": True,
+                        "result": data,
+                    }
+                )
+                answer_parts.append(f"Student count: {data['rows'][0]['value']}")
+
+            if wants_average:
+                args = {
+                    "table": "students",
+                    "metric": "avg",
+                    "column": "score",
+                    "group_by": "cohort",
+                }
+                result = await client.call_tool("aggregate", args)
+                data = self._tool_data(result)
+                trace.append(
+                    {
+                        "step": "tool",
+                        "operation": "aggregate",
+                        "arguments": args,
+                        "ok": True,
+                        "result": data,
+                    }
+                )
+                averages = ", ".join(
+                    f"{row['cohort']}: {round(row['value'], 2)}"
+                    for row in data["rows"]
+                )
+                answer_parts.append(f"Average score by cohort: {averages}")
+
+            if wants_invalid:
+                args = {"table": "missing_table"}
+                result = await client.call_tool(
+                    "search", args, raise_on_error=False
+                )
+                error_text = result.content[0].text if result.content else ""
+                trace.append(
+                    {
+                        "step": "tool",
+                        "operation": "search",
+                        "arguments": args,
+                        "ok": False,
+                        "error": error_text,
+                    }
+                )
+                answer_parts.append(f"Invalid request demo: {error_text}")
+
+        return {
+            "prompt": prompt,
+            "answer": "\n".join(answer_parts),
+            "trace": trace,
+            "ran_at": int(time.time()),
+        }
 
     def _send_json(
         self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
@@ -129,6 +314,31 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if values and values[0] != "":
             return values[0]
         return None
+
+    @staticmethod
+    def _model_to_json(value: Any) -> dict[str, Any]:
+        if hasattr(value, "model_dump"):
+            return value.model_dump(mode="json")
+        if hasattr(value, "dict"):
+            return value.dict()
+        return dict(value)
+
+    @staticmethod
+    def _tool_data(result: Any) -> Any:
+        if getattr(result, "data", None) is not None:
+            return result.data
+        return getattr(result, "structured_content", None)
+
+    @staticmethod
+    def _mentions_any(text: str, terms: list[str]) -> bool:
+        return any(term in text for term in terms)
+
+
+DEFAULT_PROMPT = (
+    "List the available MCP tools and resources. Read schema://database. "
+    "Search students in cohort A1 ordered by score descending. "
+    "Count students and calculate average score by cohort."
+)
 
 
 def run(host: str, port: int, db_path: Path) -> None:
