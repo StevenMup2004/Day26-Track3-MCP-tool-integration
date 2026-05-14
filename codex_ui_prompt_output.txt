@@ -1,0 +1,28 @@
+**Available MCP Tools**
+- `sqlite-lab.search`
+- `sqlite-lab.aggregate`
+- `sqlite-lab.insert`
+
+**Available MCP Resources**
+- `schema://database` - full SQLite database schema as JSON
+- Resource template: `schema://table/{table_name}` - schema for one SQLite table
+
+**Database Schema**
+- `courses`: `id`, `code`, `title`, `credits`, `created_at`
+- `enrollments`: `id`, `student_id`, `course_id`, `status`, `score`, `enrolled_at`
+- `students`: `id`, `name`, `email`, `cohort`, `age`, `score`, `created_at`
+
+**Students In Cohort A1, Ordered By Score Descending**
+
+| id | name | email | cohort | age | score |
+|---:|---|---|---|---:|---:|
+| 2 | Binh Tran | binh.tran@example.com | A1 | 22 | 91.0 |
+| 1 | An Nguyen | an.nguyen@example.com | A1 | 21 | 88.5 |
+
+**Student Count And Average Score By Cohort**
+
+| cohort | count | average score |
+|---|---:|---:|
+| A1 | 2 | 89.75 |
+| A2 | 2 | 80.75 |
+| B1 | 2 | 82.25 |
