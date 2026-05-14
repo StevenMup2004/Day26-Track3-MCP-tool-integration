@@ -1,0 +1,3 @@
+courses, enrollments, students
+
+student count: 6

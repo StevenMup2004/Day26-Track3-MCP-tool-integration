@@ -1,0 +1,7 @@
+.venv/
+.pytest_cache/
+.npm-cache/
+__pycache__/
+*.py[cod]
+implementation/sqlite_lab.db
+codex_demo_run.log

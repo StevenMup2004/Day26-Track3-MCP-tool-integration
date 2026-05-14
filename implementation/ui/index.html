@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SQLite Lab Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FastMCP SQLite Lab</p>
+        <h1>Database Dashboard</h1>
+      </div>
+      <div class="topbar-actions">
+        <span id="statusPill" class="status-pill">Connecting</span>
+        <button id="resetButton" class="ghost-button" type="button" title="Reset seed data">
+          Reset
+        </button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar" aria-label="Data controls">
+        <section class="control-section">
+          <label for="tableSelect">Table</label>
+          <select id="tableSelect"></select>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Search</div>
+          <label for="filterColumn">Filter column</label>
+          <select id="filterColumn"></select>
+
+          <label for="filterOperator">Operator</label>
+          <select id="filterOperator">
+            <option value="eq">eq</option>
+            <option value="ne">ne</option>
+            <option value="gt">gt</option>
+            <option value="gte">gte</option>
+            <option value="lt">lt</option>
+            <option value="lte">lte</option>
+            <option value="like">like</option>
+          </select>
+
+          <label for="filterValue">Value</label>
+          <input id="filterValue" type="text" placeholder="A1" />
+
+          <label for="orderBy">Order by</label>
+          <select id="orderBy"></select>
+
+          <div class="inline-controls">
+            <label class="checkbox-row">
+              <input id="descending" type="checkbox" />
+              Desc
+            </label>
+            <label>
+              Limit
+              <input id="limitInput" type="number" min="1" max="100" value="20" />
+            </label>
+          </div>
+
+          <button id="searchButton" class="primary-button" type="button">Run Search</button>
+        </section>
+
+        <section class="control-section">
+          <div class="section-title">Aggregate</div>
+          <label for="metricSelect">Metric</label>
+          <select id="metricSelect">
+            <option value="count">count</option>
+            <option value="avg">avg</option>
+            <option value="sum">sum</option>
+            <option value="min">min</option>
+            <option value="max">max</option>
+          </select>
+
+          <label for="metricColumn">Column</label>
+          <select id="metricColumn"></select>
+
+          <label for="groupBy">Group by</label>
+          <select id="groupBy"></select>
+
+          <button id="aggregateButton" class="secondary-button" type="button">Visualize</button>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <nav class="tabs" aria-label="Dashboard views">
+          <button class="tab active" data-tab="data" type="button">Data</button>
+          <button class="tab" data-tab="schema" type="button">Schema</button>
+          <button class="tab" data-tab="insert" type="button">Insert</button>
+        </nav>
+
+        <section id="dataTab" class="tab-panel active">
+          <div class="summary-strip">
+            <div>
+              <span class="summary-label">Rows</span>
+              <strong id="rowCount">0</strong>
+            </div>
+            <div>
+              <span class="summary-label">Active table</span>
+              <strong id="activeTable">students</strong>
+            </div>
+            <div>
+              <span class="summary-label">Database</span>
+              <strong id="databaseName">sqlite_lab.db</strong>
+            </div>
+          </div>
+
+          <div class="visual-grid">
+            <section class="data-pane">
+              <div class="pane-heading">
+                <h2>Rows</h2>
+                <span id="queryLabel">Latest search</span>
+              </div>
+              <div class="table-wrap">
+                <table id="rowsTable"></table>
+              </div>
+            </section>
+
+            <section class="chart-pane">
+              <div class="pane-heading">
+                <h2>Aggregate</h2>
+                <span id="aggregateLabel">count by table</span>
+              </div>
+              <div id="barChart" class="bar-chart"></div>
+              <table id="aggregateTable" class="mini-table"></table>
+            </section>
+          </div>
+        </section>
+
+        <section id="schemaTab" class="tab-panel">
+          <div class="pane-heading">
+            <h2>Schema</h2>
+            <span id="schemaLabel">columns and constraints</span>
+          </div>
+          <div class="table-wrap">
+            <table id="schemaTable"></table>
+          </div>
+        </section>
+
+        <section id="insertTab" class="tab-panel">
+          <div class="pane-heading">
+            <h2>Insert Row</h2>
+            <span id="insertLabel">generated from schema</span>
+          </div>
+          <form id="insertForm" class="insert-form"></form>
+          <pre id="insertResult" class="result-box"></pre>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
