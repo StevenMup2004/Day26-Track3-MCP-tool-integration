@@ -441,15 +441,23 @@ tr:last-child td {
 
 .prompt-actions {
   display: grid;
-  grid-template-columns: 130px 1fr;
+  grid-template-columns: 120px 1fr 1fr;
   gap: 10px;
   margin-top: 12px;
 }
 
 .prompt-actions .primary-button,
+.prompt-actions .secondary-button,
 .prompt-actions .ghost-button {
   width: 100%;
   margin-top: 0;
+}
+
+.prompt-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .tool-list,

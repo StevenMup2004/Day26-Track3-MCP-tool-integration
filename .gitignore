@@ -5,3 +5,4 @@ __pycache__/
 *.py[cod]
 implementation/sqlite_lab.db
 codex_demo_run.log
+codex_ui_prompt_output.txt

@@ -113,7 +113,7 @@ Evidence:
 - Codex MCP server `sqlite-lab` configured with `.venv\Scripts\python.exe`.
 - `codex_demo_output.txt` shows Codex reading table names and counting students through MCP.
 - Browser UI dashboard is available at `http://127.0.0.1:8765` when `implementation/ui_server.py` is running.
-- Browser UI includes an **MCP Demo** tab with prompt input, MCP tool/resource discovery, and a visible MCP call trace.
+- Browser UI includes an **MCP Demo** tab with prompt input, MCP tool/resource discovery, fast local MCP trace, and **Run Real Codex** for a real prompt workflow through Codex CLI.
 - Recommended final polish: record the 2-minute video or take screenshots of the UI plus `codex mcp list` and Codex prompt output.
 
 ## Bonus - up to 10 points

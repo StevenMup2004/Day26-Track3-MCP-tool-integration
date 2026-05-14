@@ -289,6 +289,27 @@ async function runMcpPrompt() {
   }
 }
 
+async function runRealCodexPrompt() {
+  $("runCodexButton").disabled = true;
+  $("runCodexButton").textContent = "Running Codex";
+  $("promptAnswer").textContent = "Starting Codex CLI. This can take 30-90 seconds...";
+  $("traceLabel").textContent = "waiting for Codex";
+  $("mcpTrace").innerHTML = "";
+  try {
+    const result = await api("/api/codex/prompt", {
+      method: "POST",
+      body: JSON.stringify({ prompt: $("promptInput").value }),
+    });
+    $("promptAnswer").textContent = result.answer;
+    $("traceLabel").textContent = `${result.trace.length} Codex events`;
+    renderMcpTrace(result.trace);
+    showToast("Real Codex prompt completed");
+  } finally {
+    $("runCodexButton").disabled = false;
+    $("runCodexButton").textContent = "Run Real Codex";
+  }
+}
+
 function renderMcpTrace(trace) {
   $("mcpTrace").innerHTML = trace
     .map(
@@ -334,6 +355,9 @@ function bindEvents() {
   );
   $("runPromptButton").addEventListener("click", () =>
     runMcpPrompt().catch((error) => showToast(error.message, true)),
+  );
+  $("runCodexButton").addEventListener("click", () =>
+    runRealCodexPrompt().catch((error) => showToast(error.message, true)),
   );
   $("insertForm").addEventListener("submit", (event) =>
     insertRow(event).catch((error) => showToast(error.message, true)),

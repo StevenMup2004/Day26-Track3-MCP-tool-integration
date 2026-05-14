@@ -113,7 +113,8 @@ Useful UI demo flow:
 
 - Open the **MCP Demo** tab.
 - Click **List Tools** to show MCP-discoverable tools and resources.
-- Edit the prompt, then click **Run Prompt** to show the prompt, answer, and MCP call trace.
+- Edit the prompt, then click **Run Prompt** to show a fast local MCP trace.
+- Click **Run Real Codex** to send the prompt through Codex CLI. This is the real prompt workflow and can take 30-90 seconds.
 - Show `students` rows ordered by `score`.
 - Filter `students` where `cohort = A1`.
 - Visualize `avg(score)` grouped by `cohort`.
@@ -131,6 +132,19 @@ Prompt with invalid request demo:
 
 ```text
 List tools, read schema, search A1 students, count students, average score by cohort, and show invalid error.
+```
+
+Real Codex prompt example:
+
+```text
+Read schema and count students using sqlite-lab MCP only.
+```
+
+Expected Real Codex answer includes:
+
+```text
+Tables found: courses, enrollments, students
+Student count: 6
 ```
 
 ## Tools

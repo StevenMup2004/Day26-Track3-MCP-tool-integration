@@ -4,6 +4,8 @@ import argparse
 import asyncio
 import json
 import mimetypes
+import shutil
+import subprocess
 import time
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -24,6 +26,7 @@ except ImportError:  # Allows `python implementation/ui_server.py`.
 
 
 IMPLEMENTATION_DIR = Path(__file__).resolve().parent
+REPO_ROOT = IMPLEMENTATION_DIR.parent
 UI_DIR = IMPLEMENTATION_DIR / "ui"
 
 
@@ -108,9 +111,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             elif path == "/api/mcp/prompt":
                 prompt = str(payload.get("prompt", "")).strip()
                 self._send_json(asyncio.run(self._run_mcp_prompt(prompt)))
+            elif path == "/api/codex/prompt":
+                prompt = str(payload.get("prompt", "")).strip()
+                self._send_json(self._run_codex_prompt(prompt))
             else:
                 self._send_json({"error": "not found"}, HTTPStatus.NOT_FOUND)
-        except (TypeError, ValidationError, ValueError) as exc:
+        except (TypeError, ValidationError, ValueError, RuntimeError) as exc:
             self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
     async def _mcp_metadata(self) -> dict[str, Any]:
@@ -287,6 +293,124 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "ran_at": int(time.time()),
         }
 
+    def _run_codex_prompt(self, prompt: str) -> dict[str, Any]:
+        if not prompt:
+            prompt = DEFAULT_PROMPT
+
+        codex = self._find_codex()
+        output_file = REPO_ROOT / "codex_ui_prompt_output.txt"
+        wrapped_prompt = (
+            "Do not modify files. Do not use shell commands. "
+            "Only use the sqlite-lab MCP server and its MCP resources/tools. "
+            "Show the final answer clearly.\n\n"
+            f"User prompt: {prompt}"
+        )
+        command = [
+            str(codex),
+            "exec",
+            "--ephemeral",
+            "--json",
+            "--output-last-message",
+            str(output_file),
+            "--dangerously-bypass-approvals-and-sandbox",
+            "-C",
+            str(REPO_ROOT),
+            wrapped_prompt,
+        ]
+
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("Codex prompt timed out after 180 seconds") from exc
+
+        events, trace, answer = self._parse_codex_jsonl(completed.stdout)
+        if output_file.exists():
+            answer = output_file.read_text(encoding="utf-8").strip() or answer
+
+        if completed.returncode != 0:
+            stderr_tail = completed.stderr[-1200:] if completed.stderr else ""
+            raise RuntimeError(
+                f"Codex prompt failed with exit code {completed.returncode}. {stderr_tail}"
+            )
+
+        return {
+            "prompt": prompt,
+            "answer": answer,
+            "trace": trace,
+            "events_count": len(events),
+            "stderr_tail": completed.stderr[-1200:] if completed.stderr else "",
+            "ran_at": int(time.time()),
+        }
+
+    def _parse_codex_jsonl(
+        self, stdout: str
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
+        events: list[dict[str, Any]] = []
+        trace: list[dict[str, Any]] = []
+        answer = ""
+
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line.startswith("{"):
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            events.append(event)
+            item = event.get("item") or {}
+            item_type = item.get("type")
+
+            if item_type == "mcp_tool_call":
+                status = item.get("status")
+                if event.get("type") == "item.started":
+                    trace.append(
+                        {
+                            "step": "codex_mcp",
+                            "operation": item.get("tool"),
+                            "server": item.get("server"),
+                            "arguments": item.get("arguments"),
+                            "ok": None,
+                            "status": status,
+                        }
+                    )
+                elif event.get("type") == "item.completed":
+                    result = item.get("result")
+                    error = item.get("error")
+                    trace.append(
+                        {
+                            "step": "codex_mcp",
+                            "operation": item.get("tool"),
+                            "server": item.get("server"),
+                            "arguments": item.get("arguments"),
+                            "ok": error is None,
+                            "status": status,
+                            "result": result,
+                            "error": error,
+                        }
+                    )
+            elif item_type == "agent_message":
+                answer = item.get("text", answer)
+            elif item_type == "command_execution":
+                trace.append(
+                    {
+                        "step": "codex_command",
+                        "operation": "command_execution",
+                        "arguments": {"command": item.get("command")},
+                        "ok": item.get("exit_code") == 0,
+                        "status": item.get("status"),
+                        "result": item.get("aggregated_output"),
+                    }
+                )
+
+        return events, trace, answer
+
     def _send_json(
         self, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
     ) -> None:
@@ -332,6 +456,23 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     @staticmethod
     def _mentions_any(text: str, terms: list[str]) -> bool:
         return any(term in text for term in terms)
+
+    @staticmethod
+    def _find_codex() -> Path:
+        codex = shutil.which("codex")
+        if codex:
+            return Path(codex)
+
+        extension_dir = Path.home() / ".vscode" / "extensions"
+        if extension_dir.exists():
+            matches = sorted(extension_dir.rglob("codex.exe"), reverse=True)
+            if matches:
+                return matches[0]
+
+        raise RuntimeError(
+            "Could not find codex.exe. Open the OpenAI ChatGPT VS Code extension "
+            "or add Codex CLI to PATH."
+        )
 
 
 DEFAULT_PROMPT = (
